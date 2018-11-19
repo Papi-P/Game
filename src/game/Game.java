@@ -65,7 +65,7 @@ public class Game extends Thread {
             public void run() {
                 G1.add(new gremoad());
             }
-        }, 0, 2000);
+        }, 0, 2500);
     }
 
     public static JFrame buildFrame() {
@@ -202,16 +202,17 @@ class FrameContainer extends JPanel {
 
         
         //<editor-fold desc="Draw gremoads">
-        for(int i = 0; i < G1.size(); i++){
+        for(int i = 0; i < GAttacks.size(); i++){
             try{
-                g2d.drawImage(G1.get(i).gImage, G1.get(i).getX(), G1.get(i).getY(), G1.get(i).size, G1.get(i).size, null);
+                g2d.drawImage(gaImage, GAttacks.get(i).orbx+GAttacks.get(i).orbsize/2, GAttacks.get(i).orby, GAttacks.get(i).orbsize, GAttacks.get(i).orbsize, null);
             }catch(Exception e){
                 
             }
         }
-        for(int i = 0; i < GAttacks.size(); i++){
+        for(int i = 0; i < G1.size(); i++){
             try{
-                g2d.drawImage(gaImage, GAttacks.get(i).orbx+GAttacks.get(i).orbsize/2, GAttacks.get(i).orby, GAttacks.get(i).orbsize, GAttacks.get(i).orbsize, null);
+                if(G1.get(i) != null)
+                    g2d.drawImage(G1.get(i).gImage, G1.get(i).getX(), G1.get(i).getY(), G1.get(i).size, G1.get(i).size, null);
             }catch(Exception e){
                 
             }
@@ -240,26 +241,28 @@ class FrameContainer extends JPanel {
 
 class gremoad {
     public double health = 100;
+    private int initDir = (int)(Math.floor(Math.random()*2));
     public double speed = Math.random()*6+1;
+    private double xspeed = speed;
     public double damage = 20;
     private int screenWidth = 1200;
     private int x = (int) (Math.floor(Math.random() * screenWidth));
     private int maxy = (int) (Math.floor(Math.random() * 100));
     private int y = -150;
-    private int dir = 0;
+    private int dir = 1;
     public int size = 150;
-    private final gremoad t = this;
+    private gremoad t = this;
     public Image gImage;
     public gremoad(){
+        if(initDir == 0){
+            this.xspeed*=-1;
+        }
         try {
             this.gImage = ImageIO.read(new File("src\\game\\Artboard 1@4x.png"));
         } catch (IOException ex) {
             Logger.getLogger(gremoad.class.getName()).log(Level.SEVERE, null, ex);
         }
         initEntity();
-    }
-    private void gremoadDeath() {
-
     }
 
     private void initEntity() {
@@ -270,46 +273,46 @@ class gremoad {
                     y += speed;
                 }
                 if (x >= screenWidth - 128) {
-                    dir = 0;
+                    if(initDir == 1)
+                        dir = -1;
+                    else
+                        dir = 1;
                 }
                 if (x <= 0) {
-                    dir = 1;
+                    if(initDir == 1)
+                        dir = 1;
+                    else
+                        dir = -1;
                 }
-                if (dir == 0) {
-                    x -= speed;
+                if (dir == -1) {
+                    x -= xspeed;
                 }
                 if (dir == 1) {
-                    x += speed;
+                    x += xspeed;
                 }
-                /*if(HeroX < x){
-                    x-=speed;
-                }
-                if(HeroX > x){
-                    x+=speed;
-                }*/
                 if((y > defender.getY()-t.size && y < defender.getY()+defender.size)){
                     if((x > defender.getX()-t.size && x < defender.getX()+defender.size)){
                         if(G1.contains(t)){
-                            G1.remove(t);
-                            t.x = -t.size;
-                            t.y = 2000;
                             score++;
+                            G1.remove(t);
                             this.cancel();
                         }
                     }
                 }
             }
         }, 0, 1000 / 60);
+        //attack
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 if(G1.contains(t)){
-                    GAttacks.add(new ga(t.getX()+t.size/2, t.getY()));
+                    ga temp = new ga(t.getX()+25, t.getY()+t.size-50, dir*((int)t.xspeed));
+                    GAttacks.add(temp);
                 }else{
                     this.cancel();
                 }
             }
-        }, 0, 5000);
+        }, 0, 2000);
     }
 
     public int getX() {
@@ -318,6 +321,10 @@ class gremoad {
 
     public int getY() {
         return this.y;
+    }
+    private void deleteEntity(){
+        t = null;
+        G1.remove(this);
     }
 }
 //</editor-fold>
@@ -331,23 +338,25 @@ class ga{
     private int orbspeed = 2;
     private ga t = this;
     gremoad p;
-    ga(int ox, int oy){
+    double gravity = .98/2;
+    double verticalSpeed = 1;
+    ga(int ox, int oy, int sp){
         this.orbx = ox;
         this.orby = oy;
+        this.orbspeed = sp;
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                orby += orbspeed;
+                    verticalSpeed += gravity;
+                    orby += verticalSpeed;
+                    orbx += orbspeed;
                 if(orby > 800+orbsize){
                     GAttacks.remove(t);
                 }
-                if((orby > defender.getY()-t.orbsize && orby < defender.getY()+defender.size)){
-                    if((orbx > defender.getX()-t.orbsize && orbx < defender.getX()+defender.size)){
-                        t.orbx = -t.orbsize;
-                        t.orby = 2000;
-                        GAttacks.remove(this);
+                if(orby > defender.getY()-t.orbsize && orby < defender.getY()+defender.size && orbx > defender.getX()-t.orbsize && orbx < defender.getX()+defender.size){
+                    if(GAttacks.contains(t))
                         lives--;
-                    }
+                    GAttacks.remove(t);
                 }
             }
         }, 0, 1000/60);
@@ -366,7 +375,8 @@ class Hero {
     public double speed = 10;
     public double damage = 20;
     private int x = 500;
-    private int y = 500;
+    private int y = 600;
+    private int maxy = y;
     int size = 150;
     private final Hero t = this;
     private int screenWidth = 1200;
@@ -405,7 +415,7 @@ class Hero {
             gravity = 2;
             tvelocity = 300;
             verticalSpeed = 0;
-            jumpForce = 45;
+            jumpForce = 50;
             new Timer().scheduleAtFixedRate(new TimerTask() {
                 @Override
                 public void run() {
@@ -419,14 +429,14 @@ class Hero {
                         }
                     }
                     if (goingUp == false) {
-                        if (y < 500) {
+                        if (y < maxy) {
                             verticalSpeed = (int) (verticalSpeed + gravity);
                             y += verticalSpeed;
                         }
                     }
-                    if (y >= 500) {
+                    if (y >= maxy) {
                         isJumping = false;
-                        y = 500;
+                        y = maxy;
                         this.cancel();
                     }
                 }
