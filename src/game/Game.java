@@ -14,7 +14,6 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -28,18 +27,19 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import static javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW;
 
+//<editor-fold defaultstate="collapsed" desc="Main">
 public class Game extends Thread {
-
+    
     static JFrame ac;
     static FrameContainer fc;
-
+    
     public Game() {
-
+        
     }
     
     @Override
     public void run() {
-
+        
     }
     static ArrayList<gremoad> G1 = new ArrayList<gremoad>();
     static ArrayList<ga> GAttacks = new ArrayList<ga>();
@@ -67,7 +67,7 @@ public class Game extends Thread {
             }
         }, 0, 2500);
     }
-
+    
     public static JFrame buildFrame() {
         JFrame ac = new JFrame();
         ac.setSize(1200, 800);
@@ -81,9 +81,10 @@ public class Game extends Thread {
 class MovementState {
     public int xDirection;
 }
-
+//</editor-fold>
+//<editor-fold defaultstate="collapsed" desc="FrameContainer">
 class FrameContainer extends JPanel {
-
+    
     private BufferedImage buffer;
     BufferedImage gimage;
     Image himage;
@@ -91,43 +92,43 @@ class FrameContainer extends JPanel {
     public static Hero defender;
     public static int HeroX;
     public class XDirectionAction extends AbstractDirectionAction {
-
+        
         public XDirectionAction(MovementState movementState, int value) {
             super(movementState, value);
         }
-
+        
         @Override
         public void actionPerformed(ActionEvent e) {
             if (!defender.isJumping) {
                 getMovementState().xDirection = getValue();
-            if(getMovementState().xDirection > 0)
-                Hero.curDir = -1;
-            if(getMovementState().xDirection < 0)
-                Hero.curDir = 1;
+                if(getMovementState().xDirection > 0)
+                    Hero.curDir = -1;
+                if(getMovementState().xDirection < 0)
+                    Hero.curDir = 1;
             }
         }
     }
-
+    
     public abstract class AbstractDirectionAction extends AbstractAction {
-
+        
         private final MovementState movementState;
         private final int value;
-
+        
         public AbstractDirectionAction(MovementState movementState, int value) {
             this.movementState = movementState;
             this.value = value;
         }
-
+        
         public MovementState getMovementState() {
             return movementState;
         }
-
+        
         public int getValue() {
             return value;
         }
-
+        
     }
-
+    
     FrameContainer() {
         try {
             this.gaImage = ImageIO.read(new File("src\\game\\Orb.png"));
@@ -147,10 +148,10 @@ class FrameContainer extends JPanel {
             Logger.getLogger(FrameContainer.class.getName()).log(Level.SEVERE, null, ex);
         }
         himage = defender.characterModel();
-
+        
         InputMap im = getInputMap(WHEN_IN_FOCUSED_WINDOW);
         ActionMap am = getActionMap();
-
+        
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0, false), "left-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0, true), "left-released");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0, false), "right-pressed");
@@ -159,17 +160,17 @@ class FrameContainer extends JPanel {
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, true), "left-released");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, false), "right-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, true), "right-released");
-
+        
         am.put("left-pressed", new XDirectionAction(defender.movementState, -(int) defender.speed));
         am.put("left-released", new XDirectionAction(defender.movementState, 0));
         am.put("right-pressed", new XDirectionAction(defender.movementState, (int) defender.speed));
         am.put("right-released", new XDirectionAction(defender.movementState, 0));
-
+        
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0, false), "up-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0, true), "up-released");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, false), "up-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, true), "up-released");
-
+        
         am.put("up-pressed", JAction);
     }
     Action JAction = new AbstractAction() {
@@ -178,11 +179,11 @@ class FrameContainer extends JPanel {
             defender.jump();
         }
     };
-
+    
     public void init() throws IOException {
-
+        
     }
-
+    
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -199,7 +200,7 @@ class FrameContainer extends JPanel {
         g2d.setColor(Color.GRAY);
         g2d.fillRect(0, 600, 1200, 200);
         g2d.setColor(Color.RED);
-
+        
         
         //<editor-fold desc="Draw gremoads">
         for(int i = 0; i < GAttacks.size(); i++){
@@ -231,12 +232,13 @@ class FrameContainer extends JPanel {
         
         HeroX = defender.getX();
     }
-
+    
     public void playGame() {
-
+        
     }
-
 }
+//</editor-fold>
+//</editor-fold>
 //<editor-fold defaultstate="collapsed" desc="Gremoad Class">
 
 class gremoad {
