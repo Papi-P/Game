@@ -83,12 +83,55 @@ class MovementState {
 }
 //</editor-fold>
 //<editor-fold defaultstate="collapsed" desc="FrameContainer">
+class HeroImage{
+    BufferedImage SpriteSheet;
+    HeroImage(){
+        try {
+            this.SpriteSheet = ImageIO.read(new File("C:\\Users\\Daniel\\Documents\\NetBeansProjects\\Game\\src\\game\\adventurer-v1.5-Sheet.png"));
+        } catch (IOException ex) {
+            Logger.getLogger(HeroImage.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    public Image frame(int f, String ac){
+        if(ac.equalsIgnoreCase("Idle")){
+            while(f >= 4)
+                f-= 4;
+            return SpriteSheet.getSubimage((f)*50, 0, 50, 37);
+        }
+        if(ac.equalsIgnoreCase("Move")){
+            while(f > 6)
+                f-=6;
+            if(f < 6)
+                return SpriteSheet.getSubimage((f)*50, 37, 50, 37);
+            
+        }
+        if(ac.equalsIgnoreCase("Jump")){
+            if(f < 7)
+                return SpriteSheet.getSubimage((f)*50, 37*2, 50, 37);
+            else if(f == 7)
+                return SpriteSheet.getSubimage((f)*50, 37*3, 50, 37);
+            else if(f > 7){
+                while(f > 7)
+                    f-=7;
+            }
+        }
+        if(ac.equalsIgnoreCase("Falling")){
+            if(f > 2)
+                while(f > 2)
+                    f-=2;
+            if(f <= 2)
+                return SpriteSheet.getSubimage((f)*50, 37*2, 50, 37);
+            
+        }
+        return null;
+    }
+}
 class FrameContainer extends JPanel {
-    
     private BufferedImage buffer;
     BufferedImage gimage;
-    Image himage;
     BufferedImage gaImage;
+    BufferedImage backgroundImage;
+    HeroImage himg = new HeroImage();
     public static Hero defender;
     public static int HeroX;
     public class XDirectionAction extends AbstractDirectionAction {
@@ -100,11 +143,15 @@ class FrameContainer extends JPanel {
         @Override
         public void actionPerformed(ActionEvent e) {
             if (!defender.isJumping) {
+                if(getValue() == 0)
+                    defender.curAction = "Idle";
+                else
+                    defender.curAction = "Move";
                 getMovementState().xDirection = getValue();
                 if(getMovementState().xDirection > 0)
-                    Hero.curDir = -1;
-                if(getMovementState().xDirection < 0)
                     Hero.curDir = 1;
+                if(getMovementState().xDirection < 0)
+                    Hero.curDir = -1;
             }
         }
     }
@@ -131,6 +178,11 @@ class FrameContainer extends JPanel {
     
     FrameContainer() {
         try {
+            this.backgroundImage = ImageIO.read(new File("src\\game\\Background.png"));
+        } catch (IOException ex) {
+            Logger.getLogger(FrameContainer.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        try {
             this.gaImage = ImageIO.read(new File("src\\game\\Orb.png"));
         } catch (IOException ex) {
             Logger.getLogger(FrameContainer.class.getName()).log(Level.SEVERE, null, ex);
@@ -147,7 +199,6 @@ class FrameContainer extends JPanel {
         } catch (IOException ex) {
             Logger.getLogger(FrameContainer.class.getName()).log(Level.SEVERE, null, ex);
         }
-        himage = defender.characterModel();
         
         InputMap im = getInputMap(WHEN_IN_FOCUSED_WINDOW);
         ActionMap am = getActionMap();
@@ -183,10 +234,16 @@ class FrameContainer extends JPanel {
     public void init() throws IOException {
         
     }
-    
+    int curFrameNumber = 0, curFrame = 1;
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
+        curFrameNumber++;
+        if(curFrameNumber%(60/10) == 0){
+            curFrame++;
+            if(curFrame > 5)
+                curFrame = 1;
+        }
         Graphics2D g2d = (Graphics2D) buffer.getGraphics();
         //<editor-fold desc="Antialiasing">
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
@@ -195,10 +252,7 @@ class FrameContainer extends JPanel {
                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         //</editor-fold>
         
-        g2d.setColor(Color.WHITE);
-        g2d.fillRect(0, 0, 1200, 800);
-        g2d.setColor(Color.GRAY);
-        g2d.fillRect(0, 600, 1200, 200);
+        g2d.drawImage(backgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
         g2d.setColor(Color.RED);
         
         
@@ -223,13 +277,12 @@ class FrameContainer extends JPanel {
         g2d.setFont(new Font("Electrofied", Font.PLAIN, 24));
         g2d.drawString("Score: "+score, 50, 24);
         g2d.drawString("Lives: "+lives, 50, 48);
-        
+        //</editor-fold>
         if(defender.curDir == 1)
-            g2d.drawImage(himage, defender.getX(), defender.getY(), defender.size, defender.size, null);
+            g2d.drawImage(himg.frame(curFrame, defender.curAction), defender.getX(), defender.getY(), defender.size, defender.size, null);
         if(defender.curDir == -1)
-            g2d.drawImage(himage, defender.getX()+defender.size, defender.getY(), -defender.size, defender.size, null);
+            g2d.drawImage(himg.frame(curFrame, defender.curAction), defender.getX()+defender.size, defender.getY(), -defender.size, defender.size, null);
         g.drawImage(buffer, 0, 0, null);
-        
         HeroX = defender.getX();
     }
     
@@ -237,7 +290,7 @@ class FrameContainer extends JPanel {
         
     }
 }
-//</editor-fold>
+
 //</editor-fold>
 //<editor-fold defaultstate="collapsed" desc="Gremoad Class">
 
@@ -368,8 +421,8 @@ class ga{
 //<editor-fold desc="Hero class">
 
 class Hero {
-
     public MovementState movementState = new MovementState();
+    public String curAction = "Idle";
     double gravity = 20;
     double tvelocity = 300;
     int verticalSpeed = 0;
@@ -377,7 +430,7 @@ class Hero {
     public double speed = 10;
     public double damage = 20;
     private int x = 500;
-    private int y = 600;
+    private int y = 555;
     private int maxy = y;
     int size = 150;
     private final Hero t = this;
@@ -386,7 +439,7 @@ class Hero {
     private int jumpForce = 0;
     public static int curDir = 1;
     public Hero() throws IOException {
-        this.gImage = ImageIO.read(new File("src\\game\\Nate.png"));
+        this.gImage = ImageIO.read(new File("src\\game\\GameSprite.png"));
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
@@ -412,6 +465,7 @@ class Hero {
 
     public void jump() {
         if (!isJumping) {
+            this.curAction = "Jump";
             isJumping = true;
             goingUp = true;
             gravity = 2;
@@ -427,11 +481,13 @@ class Hero {
                             y -= jumpForce;
                         } else {
                             goingUp = false;
+                            t.curAction = "Falling";
                             verticalSpeed = 0;
                         }
                     }
                     if (goingUp == false) {
                         if (y < maxy) {
+                            t.curAction = "Falling";
                             verticalSpeed = (int) (verticalSpeed + gravity);
                             y += verticalSpeed;
                         }
@@ -439,6 +495,10 @@ class Hero {
                     if (y >= maxy) {
                         isJumping = false;
                         y = maxy;
+                        if(defender.movementState.xDirection == 0)
+                            t.curAction = "Idle";
+                        else if(defender.movementState.xDirection != 0)
+                            t.curAction = "Move";
                         this.cancel();
                     }
                 }
@@ -448,10 +508,6 @@ class Hero {
 
     private void attack() {
         
-    }
-
-    public Image characterModel() {
-        return this.gImage;
     }
 }
 //</editor-fold>
