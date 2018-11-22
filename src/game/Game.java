@@ -87,7 +87,7 @@ class HeroImage{
     BufferedImage SpriteSheet;
     HeroImage(){
         try {
-            this.SpriteSheet = ImageIO.read(new File("C:\\Users\\Daniel\\Documents\\NetBeansProjects\\Game\\src\\game\\adventurer-v1.5-Sheet.png"));
+            this.SpriteSheet = ImageIO.read(new File("src\\game\\adventurer-v1.5-Sheet.png"));
         } catch (IOException ex) {
             Logger.getLogger(HeroImage.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -123,7 +123,20 @@ class HeroImage{
                 return SpriteSheet.getSubimage((f)*50, 37*2, 50, 37);
             
         }
-        return null;
+        if(ac.equalsIgnoreCase("Attack")){
+            if(f > 3)
+                while(f > 3)
+                    f-=3;
+            if(f <= 3)
+                return SpriteSheet.getSubimage((f-1)*50, 37*6, 50, 37);
+        }
+        if(ac.equalsIgnoreCase("Hurt")){
+            if(f > 3)
+                defender.curAction = "Idle";
+            if(f <= 3)
+                return SpriteSheet.getSubimage((f+2)*50, 37*8, 50, 37);
+        }
+        return frame(1, "Idle");
     }
 }
 class FrameContainer extends JPanel {
@@ -222,27 +235,43 @@ class FrameContainer extends JPanel {
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, false), "up-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, true), "up-released");
         
-        am.put("up-pressed", JAction);
+        am.put("up-pressed", DJump);
+        
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, true), "attack-pressed");
+        am.put("attack-pressed", DAttack);
     }
-    Action JAction = new AbstractAction() {
+    Action DJump = new AbstractAction() {
         @Override
         public void actionPerformed(ActionEvent e) {
             defender.jump();
+        }
+    };
+    Action DAttack = new AbstractAction() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            defender.attack();
         }
     };
     
     public void init() throws IOException {
         
     }
-    int curFrameNumber = 0, curFrame = 1;
+    int curFrameNumber = 0, curFrame = 1, tempFrameNumber = 0, permFrameNumber = 0;
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         curFrameNumber++;
         if(curFrameNumber%(60/10) == 0){
             curFrame++;
+            tempFrameNumber++;
             if(curFrame > 5)
                 curFrame = 1;
+        }
+        if(defender.attacking){
+            if(permFrameNumber+5 == tempFrameNumber){
+                defender.attacking = false;
+                defender.curAction = "Idle";
+            }
         }
         Graphics2D g2d = (Graphics2D) buffer.getGraphics();
         //<editor-fold desc="Antialiasing">
@@ -278,6 +307,8 @@ class FrameContainer extends JPanel {
         g2d.drawString("Score: "+score, 50, 24);
         g2d.drawString("Lives: "+lives, 50, 48);
         //</editor-fold>
+        if(defender.attacking)
+            defender.curAction = "Attack";
         if(defender.curDir == 1)
             g2d.drawImage(himg.frame(curFrame, defender.curAction), defender.getX(), defender.getY(), defender.size, defender.size, null);
         if(defender.curDir == -1)
@@ -347,10 +378,12 @@ class gremoad {
                 }
                 if((y > defender.getY()-t.size && y < defender.getY()+defender.size)){
                     if((x > defender.getX()-t.size && x < defender.getX()+defender.size)){
-                        if(G1.contains(t)){
-                            score++;
-                            G1.remove(t);
-                            this.cancel();
+                        if(defender.attacking && fc.curFrame == 3){
+                            if(G1.contains(t)){
+                                score++;
+                                G1.remove(t);
+                                this.cancel();
+                            }
                         }
                     }
                 }
@@ -409,8 +442,11 @@ class ga{
                     GAttacks.remove(t);
                 }
                 if(orby > defender.getY()-t.orbsize && orby < defender.getY()+defender.size && orbx > defender.getX()-t.orbsize && orbx < defender.getX()+defender.size){
-                    if(GAttacks.contains(t))
+                    if(GAttacks.contains(t)){
                         lives--;
+                        fc.curFrame = 1;
+                        defender.curAction = "Hurt";
+                    }
                     GAttacks.remove(t);
                 }
             }
@@ -439,7 +475,6 @@ class Hero {
     private int jumpForce = 0;
     public static int curDir = 1;
     public Hero() throws IOException {
-        this.gImage = ImageIO.read(new File("src\\game\\GameSprite.png"));
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
@@ -481,13 +516,13 @@ class Hero {
                             y -= jumpForce;
                         } else {
                             goingUp = false;
-                            t.curAction = "Falling";
+                            if(!t.curAction.equalsIgnoreCase("Falling"))
+                                t.curAction = "Falling";
                             verticalSpeed = 0;
                         }
                     }
                     if (goingUp == false) {
                         if (y < maxy) {
-                            t.curAction = "Falling";
                             verticalSpeed = (int) (verticalSpeed + gravity);
                             y += verticalSpeed;
                         }
@@ -505,9 +540,16 @@ class Hero {
             }, 0, 1000 / 60);
         }
     }
-
-    private void attack() {
-        
+    Boolean attacking = false;
+    public void attack(){
+        if(!this.attacking){
+            this.attacking = true;
+            this.curAction = "Attack";
+            fc.curFrame = 1;
+            fc.permFrameNumber = fc.tempFrameNumber;
+            fc.permFrameNumber = fc.tempFrameNumber;
+            fc.curFrame = 1;
+        }
     }
 }
 //</editor-fold>
