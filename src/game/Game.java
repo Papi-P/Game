@@ -36,11 +36,7 @@ public class Game extends Thread {
     public Game() {
         
     }
-    
-    @Override
-    public void run() {
-        
-    }
+
     static ArrayList<gremoad> G1 = new ArrayList<gremoad>();
     static ArrayList<ga> GAttacks = new ArrayList<ga>();
     public static int lives = 10;
@@ -51,15 +47,18 @@ public class Game extends Thread {
         ac.add(fc);
         fc.setFocusable(true);
         ac.setVisible(true);
+        //define every gremoad currently alive
         for(int i = 0; i < G1.size(); i++){
             G1.set(i, new gremoad());
         }
+        //refresh every 1/framerate seconds
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 fc.repaint();
             }
         }, 0, 1000 / 60);
+        //add a new flying enemy every 2.5 seconds
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
@@ -82,7 +81,7 @@ class MovementState {
     public int xDirection;
 }
 //</editor-fold>
-//<editor-fold defaultstate="collapsed" desc="FrameContainer">
+//<editor-fold desc="Hero Animation Logic">
 class HeroImage{
     BufferedImage SpriteSheet;
     HeroImage(){
@@ -131,14 +130,18 @@ class HeroImage{
                 return SpriteSheet.getSubimage((f-1)*50, 37*6, 50, 37);
         }
         if(ac.equalsIgnoreCase("Hurt")){
-            if(f > 3)
+            if(f > 3 && defender.getY() >= defender.maxy)
                 defender.curAction = "Idle";
+            else if (f > 3 && defender.getY() < defender.maxy)
+                defender.curAction = "Falling";
             if(f <= 3)
                 return SpriteSheet.getSubimage((f+2)*50, 37*8, 50, 37);
         }
         return frame(1, "Idle");
     }
 }
+//</editor-fold>
+//<editor-fold defaultstate="collapsed" desc="FrameContainer">
 class FrameContainer extends JPanel {
     private BufferedImage buffer;
     BufferedImage gimage;
@@ -147,47 +150,8 @@ class FrameContainer extends JPanel {
     HeroImage himg = new HeroImage();
     public static Hero defender;
     public static int HeroX;
-    public class XDirectionAction extends AbstractDirectionAction {
-        
-        public XDirectionAction(MovementState movementState, int value) {
-            super(movementState, value);
-        }
-        
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            if (!defender.isJumping) {
-                if(getValue() == 0)
-                    defender.curAction = "Idle";
-                else
-                    defender.curAction = "Move";
-                getMovementState().xDirection = getValue();
-                if(getMovementState().xDirection > 0)
-                    Hero.curDir = 1;
-                if(getMovementState().xDirection < 0)
-                    Hero.curDir = -1;
-            }
-        }
-    }
+    int tempDirChange = 0;
     
-    public abstract class AbstractDirectionAction extends AbstractAction {
-        
-        private final MovementState movementState;
-        private final int value;
-        
-        public AbstractDirectionAction(MovementState movementState, int value) {
-            this.movementState = movementState;
-            this.value = value;
-        }
-        
-        public MovementState getMovementState() {
-            return movementState;
-        }
-        
-        public int getValue() {
-            return value;
-        }
-        
-    }
     
     FrameContainer() {
         try {
@@ -207,11 +171,7 @@ class FrameContainer extends JPanel {
             Logger.getLogger(FrameContainer.class.getName()).log(Level.SEVERE, null, ex);
         }
         this.buffer = new BufferedImage(1200, 800, BufferedImage.TYPE_INT_RGB);
-        try {
-            this.defender = new Hero();
-        } catch (IOException ex) {
-            Logger.getLogger(FrameContainer.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        this.defender = new Hero();
         
         InputMap im = getInputMap(WHEN_IN_FOCUSED_WINDOW);
         ActionMap am = getActionMap();
@@ -225,10 +185,94 @@ class FrameContainer extends JPanel {
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, false), "right-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, true), "right-released");
         
-        am.put("left-pressed", new XDirectionAction(defender.movementState, -(int) defender.speed));
-        am.put("left-released", new XDirectionAction(defender.movementState, 0));
-        am.put("right-pressed", new XDirectionAction(defender.movementState, (int) defender.speed));
-        am.put("right-released", new XDirectionAction(defender.movementState, 0));
+        am.put("left-pressed", new AbstractAction(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(defender.isJumping == false){
+                    defender.movementValue = -(int) defender.speed;
+                    defender.curAction = "Move";
+                    defender.curDir = -1;
+                }else{
+                    defender.flaggedDir = -(int) defender.speed;
+                    new Timer().scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            if(defender.getY() >= defender.maxy){
+                                defender.movementValue = defender.flaggedDir;
+                                defender.curDir = -1;
+                                defender.curAction = "Move";
+                                this.cancel();
+                            }
+                        }
+                    }, 0, 1000 / 60);
+                }
+            }
+        });      
+        am.put("left-released", new AbstractAction(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(defender.isJumping == false){
+                    defender.movementValue = 0;
+                    defender.curAction = "Idle";
+                }else{
+                    defender.flaggedDir = 0;
+                    new Timer().scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            if(defender.getY() >= defender.maxy){
+                                defender.movementValue = 0;
+                                defender.curAction = "Idle";
+                                this.cancel();
+                            }
+                        }
+                    }, 0, 1000 / 60);
+                }
+            }
+        });
+        am.put("right-pressed", new AbstractAction(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(defender.isJumping == false){
+                    defender.movementValue = (int) defender.speed;
+                    defender.curAction = "Move";
+                    defender.curDir = 1;
+                }else{
+                    defender.flaggedDir = (int) defender.speed;
+                    new Timer().scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            if(defender.getY() >= defender.maxy){
+                                defender.movementValue = defender.flaggedDir;
+                                defender.curDir = 1;
+                                defender.curAction = "Move";
+                                this.cancel();
+                            }
+                        }
+                    }, 0, 1000 / 60);
+                }
+            }
+        });
+        am.put("right-released", new AbstractAction(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(defender.isJumping == false){
+                    defender.movementValue = 0;
+                    defender.curAction = "Idle";
+                }else{
+                    defender.flaggedDir = 0;
+                    new Timer().scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            if(defender.getY() >= defender.maxy){
+                                defender.movementValue = 0;
+                                defender.curAction = "Idle";
+                                this.cancel();
+                            }
+                        }
+                    }, 0, 1000 / 60);
+                }
+            }
+        });
         
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0, false), "up-pressed");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0, true), "up-released");
@@ -260,6 +304,7 @@ class FrameContainer extends JPanel {
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
+        //<editor-fold desc="Dealing with specific animation frame increments">
         curFrameNumber++;
         if(curFrameNumber%(60/10) == 0){
             curFrame++;
@@ -267,12 +312,15 @@ class FrameContainer extends JPanel {
             if(curFrame > 5)
                 curFrame = 1;
         }
+        //</editor-fold>
+        //create an end time for attacking
         if(defender.attacking){
             if(permFrameNumber+5 == tempFrameNumber){
                 defender.attacking = false;
                 defender.curAction = "Idle";
             }
         }
+        
         Graphics2D g2d = (Graphics2D) buffer.getGraphics();
         //<editor-fold desc="Antialiasing">
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
@@ -308,6 +356,7 @@ class FrameContainer extends JPanel {
         g2d.drawString("Lives: "+lives, 50, 48);
         //</editor-fold>
         if(defender.attacking)
+            //this sets the attack option at the highest playermodel priority. No matter what else is happening, if the user is attacking it will attack.
             defender.curAction = "Attack";
         if(defender.curDir == 1)
             g2d.drawImage(himg.frame(curFrame, defender.curAction), defender.getX(), defender.getY(), defender.size, defender.size, null);
@@ -327,15 +376,15 @@ class FrameContainer extends JPanel {
 
 class gremoad {
     public double health = 100;
-    private int initDir = (int)(Math.floor(Math.random()*2));
+    public int initDir = (int)(Math.floor(Math.random()*2));
     public double speed = Math.random()*6+1;
-    private double xspeed = speed;
+    public double xspeed = speed;
     public double damage = 20;
     private int screenWidth = 1200;
-    private int x = (int) (Math.floor(Math.random() * screenWidth));
+    public int x = (int) (Math.floor(Math.random() * screenWidth));
     private int maxy = (int) (Math.floor(Math.random() * 100));
-    private int y = -150;
-    private int dir = 1;
+    public int y = -150;
+    public int dir = 1;
     public int size = 150;
     private gremoad t = this;
     public Image gImage;
@@ -352,40 +401,14 @@ class gremoad {
     }
 
     private void initEntity() {
+        //slowly spawn the gremoad from the top of the screen down
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 if (y < maxy) {
                     y += speed;
-                }
-                if (x >= screenWidth - 128) {
-                    if(initDir == 1)
-                        dir = -1;
-                    else
-                        dir = 1;
-                }
-                if (x <= 0) {
-                    if(initDir == 1)
-                        dir = 1;
-                    else
-                        dir = -1;
-                }
-                if (dir == -1) {
-                    x -= xspeed;
-                }
-                if (dir == 1) {
-                    x += xspeed;
-                }
-                if((y > defender.getY()-t.size && y < defender.getY()+defender.size)){
-                    if((x > defender.getX()-t.size && x < defender.getX()+defender.size)){
-                        if(defender.attacking && fc.curFrame == 3){
-                            if(G1.contains(t)){
-                                score++;
-                                G1.remove(t);
-                                this.cancel();
-                            }
-                        }
-                    }
+                }else{
+                    this.cancel();
                 }
             }
         }, 0, 1000 / 60);
@@ -394,7 +417,7 @@ class gremoad {
             @Override
             public void run() {
                 if(G1.contains(t)){
-                    ga temp = new ga(t.getX()+25, t.getY()+t.size-50, dir*((int)t.xspeed));
+                    ga temp = new ga(t.x+25, t.y+t.size-50, t.dir*((int)t.xspeed));
                     GAttacks.add(temp);
                 }else{
                     this.cancel();
@@ -410,10 +433,6 @@ class gremoad {
     public int getY() {
         return this.y;
     }
-    private void deleteEntity(){
-        t = null;
-        G1.remove(this);
-    }
 }
 //</editor-fold>
 //<editor-fold desc="Gremoad attack">
@@ -424,6 +443,7 @@ class ga{
     public int orby;
     public int orbsize = 50;
     private int orbspeed = 2;
+    private double speedMulti = 0;
     private ga t = this;
     gremoad p;
     double gravity = .98/2;
@@ -432,18 +452,49 @@ class ga{
         this.orbx = ox;
         this.orby = oy;
         this.orbspeed = sp;
+        
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                     verticalSpeed += gravity;
                     orby += verticalSpeed;
-                    orbx += orbspeed;
+                    if(t.orbspeed > 0){
+                        if(speedMulti <= orbspeed){
+                            speedMulti-=0.1;
+                        }
+                        else{
+                            speedMulti = orbspeed;
+                        }
+                        orbx += orbspeed-speedMulti;
+                    }else if(t.orbspeed < 0){
+                        if(speedMulti <= orbspeed){
+                            speedMulti+=0.1;
+                        }
+                        else{
+                            speedMulti = orbspeed;
+                        }
+                        orbx += orbspeed+speedMulti;
+                    }
                 if(orby > 800+orbsize){
                     GAttacks.remove(t);
                 }
-                if(orby > defender.getY()-t.orbsize && orby < defender.getY()+defender.size && orbx > defender.getX()-t.orbsize && orbx < defender.getX()+defender.size){
-                    if(GAttacks.contains(t)){
+                
+                if(orby > defender.getY()-t.orbsize/2 && orby < defender.getY()+defender.size/2 && orbx > defender.getX()-t.orbsize/2 && orbx < defender.getX()+defender.size/2){
+                    if(GAttacks.contains(t) && defender.invincibility == false){
                         lives--;
+                        defender.invincibility = true;
+                        defender.invincibleTimer = 0;
+                        //give the player 2 seconds of invincibility after being hit
+                        new Timer().scheduleAtFixedRate(new TimerTask() {
+                            @Override
+                            public void run() {
+                                defender.invincibleTimer++;
+                                if(defender.invincibleTimer >= 2){
+                                    defender.invincibility = false;
+                                    this.cancel();
+                                }
+                            }
+                        }, 0, 1000);
                         fc.curFrame = 1;
                         defender.curAction = "Hurt";
                     }
@@ -457,7 +508,6 @@ class ga{
 //<editor-fold desc="Hero class">
 
 class Hero {
-    public MovementState movementState = new MovementState();
     public String curAction = "Idle";
     double gravity = 20;
     double tvelocity = 300;
@@ -465,24 +515,82 @@ class Hero {
     public double health = 100;
     public double speed = 10;
     public double damage = 20;
-    private int x = 500;
-    private int y = 555;
-    private int maxy = y;
+    public int x = 500;
+    public int y = 555;
+    public int maxy = y;
     int size = 150;
     private final Hero t = this;
     private int screenWidth = 1200;
     public BufferedImage gImage;
     private int jumpForce = 0;
-    public static int curDir = 1;
-    public Hero() throws IOException {
+    public int curDir = 1;
+    public int movementValue;
+    public int flaggedDir = 0;
+    Boolean invincibility = false;
+    public int invincibleTimer = 0;
+    public int getValue() {
+        return movementValue;
+    }
+    public Hero() {
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                x += movementState.xDirection;
+                x += movementValue;
                 if (x < 0) {
                     x = 0;
                 } else if (x + size > screenWidth) {
                     x = screenWidth - size;
+                }
+            }
+        }, 0, 1000 / 60);
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                gremoad t = null;
+                for(int i = 0; i < G1.size(); i++){
+                    t = G1.get(i);
+                    if (t.x >= screenWidth - 128) {
+                        if(t.initDir == 1)
+                            t.dir = -1;
+                        else
+                            t.dir = 1;
+                    }
+                    if (t.x <= 0) {
+                        if(t.initDir == 1)
+                            t.dir = 1;
+                        else
+                            t.dir = -1;
+                    }
+                    if (t.dir == -1) {
+                        t.x -= t.xspeed;
+                    }
+                    if (t.dir == 1) {
+                        t.x += t.xspeed;
+                    }
+                    if((t.y > defender.getY()-t.size && t.y < defender.getY()+t.size+20)){
+                        if(defender.curDir == -1){
+                            //on the left
+                            if((t.x > defender.getX()-10 && t.x < defender.getX()+defender.size/2+15)){
+                                if(defender.attacking && fc.curFrame >= 2 && fc.curFrame <= 3){
+                                    if(G1.contains(t)){
+                                        score++;
+                                        G1.remove(t);
+                                    }
+                                }
+                            }
+                        }
+                        if(defender.curDir == 1){
+                            //on the right
+                            if((t.x > defender.getX()+defender.size/2-15 && t.x < defender.getX()+defender.size+10)){
+                                if(defender.attacking && fc.curFrame >= 2 && fc.curFrame <= 3){
+                                    if(G1.contains(t)){
+                                        score++;
+                                        G1.remove(t);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }, 0, 1000 / 60);
@@ -501,12 +609,13 @@ class Hero {
     public void jump() {
         if (!isJumping) {
             this.curAction = "Jump";
+            fc.curFrame = 1;
             isJumping = true;
             goingUp = true;
             gravity = 2;
             tvelocity = 300;
             verticalSpeed = 0;
-            jumpForce = 50;
+            jumpForce = 48;
             new Timer().scheduleAtFixedRate(new TimerTask() {
                 @Override
                 public void run() {
@@ -516,8 +625,9 @@ class Hero {
                             y -= jumpForce;
                         } else {
                             goingUp = false;
-                            if(!t.curAction.equalsIgnoreCase("Falling"))
+                            if(!t.curAction.equalsIgnoreCase("Falling")){
                                 t.curAction = "Falling";
+                            }
                             verticalSpeed = 0;
                         }
                     }
@@ -530,9 +640,9 @@ class Hero {
                     if (y >= maxy) {
                         isJumping = false;
                         y = maxy;
-                        if(defender.movementState.xDirection == 0)
+                        if(defender.movementValue == 0)
                             t.curAction = "Idle";
-                        else if(defender.movementState.xDirection != 0)
+                        else if(defender.movementValue != 0)
                             t.curAction = "Move";
                         this.cancel();
                     }
@@ -551,5 +661,6 @@ class Hero {
             fc.curFrame = 1;
         }
     }
+    
 }
 //</editor-fold>
